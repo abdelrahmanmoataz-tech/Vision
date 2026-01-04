@@ -64,6 +64,29 @@
         }
 
         /* ============================================
+           ORGANIZATION LOGOS
+           ============================================ */
+        .org-logos {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: var(--spacing-xl);
+            padding: var(--spacing-lg) var(--spacing-md);
+        }
+
+        .org-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .org-logo img {
+            max-width: 150px;
+            height: auto;
+            object-fit: contain;
+        }
+
+        /* ============================================
            1. HERO SECTION
            ============================================ */
         .hero {
@@ -343,9 +366,20 @@
             margin: var(--spacing-md) 0;
         }
 
-        .courier-icon {
-            font-size: 3rem;
-            margin: var(--spacing-md) 0;
+        .courier-logo {
+            margin: var(--spacing-md) auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 80px;
+        }
+
+        .courier-logo img {
+            max-width: 120px;
+            max-height: 80px;
+            width: auto;
+            height: auto;
+            object-fit: contain;
         }
 
         .result-explanation {
@@ -478,13 +512,23 @@
             }
         }
     </style>
+    </style>
 </head>
 <body>
+    
 
     <!-- ============================================
          1. HERO SECTION
          ============================================ -->
     <section class="hero">
+<div class="org-logos">
+        <div class="org-logo">
+            <img src="./Images/Avrelle.png" alt="Avrelle Logo">
+        </div>
+        <div class="org-logo">
+            <img src="./Images/Bobana.webp" alt="Bobana Logo">
+        </div>
+    </div>
         <div class="container">
             <h1>Vision Shipping Allocation Engine</h1>
             <p>Automated courier assignment for Shopify orders</p>
@@ -603,7 +647,7 @@
                 <div class="simulator-result">
                     <div class="result-card" id="resultCard">
                         <p class="result-label">Assigned Courier</p>
-                        <div class="courier-icon" id="courierIcon">📦</div>
+                        <div class="courier-logo" id="courierLogo"></div>
                         <div class="courier-name" id="courierName">–</div>
                         <div class="result-explanation" id="explanation">
                             Fill in the form and click "Allocate Courier" to see the assignment.
@@ -644,6 +688,9 @@
                 </div>
             </div>
 
+            <div class="scalability-note">
+                <strong>✨ Zero-Code Scalability:</strong> All parameters (Aramex limit, cutoff time, city list, courier preferences) are stored in a configuration dashboard. Logistics teams can update rules in real-time without touching a single line of code. The engine applies changes instantly to all new orders.
+            </div>
         </div>
     </section>
 
@@ -685,7 +732,7 @@
                 if (orderTimeInMinutes < cutoffTimeInMinutes) {
                     return {
                         courier: 'Flextock',
-                        icon: '📦',
+                        logo: './Images/Flextock.png',
                         reason: `Order placed at ${time} (before 12:00 AM). Flextock handles all early morning orders.`
                     };
                 }
@@ -697,7 +744,7 @@
                 if (isWithinAramexLimit) {
                     return {
                         courier: 'Aramex',
-                        icon: '🚚',
+                        logo: './Images/Aramex.webp',
                         reason: `Order #${orderNumber} after 12:00 AM + Within first ${this.config.aramexLimit} orders → Aramex (any delivery type).`
                     };
                 }
@@ -707,7 +754,7 @@
                 if (delivery === 'same-day' && isCairoOrGiza) {
                     return {
                         courier: 'Weevo',
-                        icon: '🏃',
+                        logo: './Images/Weevo.png',
                         reason: `Order #${orderNumber} after 12:00 AM + Same-day delivery in Cairo/Giza + Beyond ${this.config.aramexLimit} orders → Weevo (express specialist).`
                     };
                 }
@@ -715,7 +762,7 @@
                 // Rule 4: All other cases beyond 20 orders
                 return {
                     courier: 'Flextock',
-                    icon: '📦',
+                    logo: './Images/Flextock.png',
                     reason: `Order #${orderNumber} exceeds Aramex limit (${this.config.aramexLimit}) or outside service area → Flextock (default).`
                 };
             }
@@ -752,12 +799,12 @@
          */
         function updateResultDisplay(result) {
             const resultCard = document.getElementById('resultCard');
-            const courierIcon = document.getElementById('courierIcon');
+            const courierLogo = document.getElementById('courierLogo');
             const courierName = document.getElementById('courierName');
             const explanation = document.getElementById('explanation');
 
             // Update content
-            courierIcon.textContent = result.icon;
+            courierLogo.innerHTML = `<img src="${result.logo}" alt="${result.courier} logo">`;
             courierName.textContent = result.courier;
             explanation.innerHTML = `<strong>Why?</strong> ${result.reason}`;
 
