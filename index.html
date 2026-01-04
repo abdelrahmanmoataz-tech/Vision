@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopify Shipping Allocation Engine</title>
+    <style>
+        /* ============================================
+           CSS VARIABLES & GLOBAL STYLES
+           ============================================ */
+        :root {
+            --color-primary: #1e3a8a;
+            --color-secondary: #0ea5e9;
+            --color-success: #10b981;
+            --color-warning: #f59e0b;
+            --color-danger: #ef4444;
+            --color-bg: #f8fafc;
+            --color-card: #ffffff;
+            --color-text-primary: #1e293b;
+            --color-text-secondary: #64748b;
+            --color-border: #e2e8f0;
+            --color-shadow: rgba(15, 23, 42, 0.08);
+            --spacing-xs: 0.5rem;
+            --spacing-sm: 1rem;
+            --spacing-md: 1.5rem;
+            --spacing-lg: 2rem;
+            --spacing-xl: 3rem;
+            --radius-sm: 0.375rem;
+            --radius-md: 0.5rem;
+            --radius-lg: 1rem;
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+                sans-serif;
+            background-color: var(--color-bg);
+            color: var(--color-text-primary);
+            line-height: 1.6;
+        }
+
+        /* ============================================
+           LAYOUT & CONTAINER
+           ============================================ */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 var(--spacing-md);
+        }
+
+        section {
+            padding: var(--spacing-xl) var(--spacing-md);
+        }
+
+        /* ============================================
+           1. HERO SECTION
+           ============================================ */
+        .hero {
+            background: linear-gradient(135deg, #1e3a8a 0%, #0ea5e9 100%);
+            color: white;
+            text-align: center;
+            padding: 5rem var(--spacing-md);
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: var(--spacing-md);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            margin-bottom: 2rem;
+            opacity: 0.95;
+        }
+
+        .badges {
+            display: flex;
+            gap: var(--spacing-sm);
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            background-color: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--radius-md);
+            font-size: 0.875rem;
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+            transition: var(--transition);
+        }
+
+        .badge:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        /* ============================================
+           2. HOW IT WORKS – FLOW VISUALIZATION
+           ============================================ */
+        .section-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: var(--spacing-lg);
+            text-align: center;
+            color: var(--color-primary);
+        }
+
+        .section-subtitle {
+            text-align: center;
+            color: var(--color-text-secondary);
+            margin-bottom: var(--spacing-lg);
+            font-size: 1.05rem;
+        }
+
+        .flow-diagram {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .flow-step {
+            background: var(--color-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-md);
+            text-align: center;
+            transition: var(--transition);
+            position: relative;
+        }
+
+        .flow-step:hover {
+            border-color: var(--color-secondary);
+            box-shadow: 0 4px 12px var(--color-shadow);
+            transform: translateY(-4px);
+        }
+
+        .flow-step h3 {
+            color: var(--color-primary);
+            margin-bottom: var(--spacing-xs);
+            font-size: 1.1rem;
+        }
+
+        .flow-step p {
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+            line-height: 1.5;
+        }
+
+        .flow-step::after {
+            content: '→';
+            position: absolute;
+            right: -1.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.5rem;
+            color: var(--color-secondary);
+            font-weight: bold;
+        }
+
+        .flow-step:last-child::after {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .flow-diagram {
+                grid-template-columns: 1fr;
+            }
+            .flow-step::after {
+                right: -0.5rem;
+                content: '↓';
+                font-size: 1.2rem;
+            }
+        }
+
+        /* ============================================
+           3. BUSINESS RULES SECTION
+           ============================================ */
+        .rules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: var(--spacing-md);
+        }
+
+        .rule-card {
+            background: var(--color-card);
+            border-left: 4px solid var(--color-secondary);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-md);
+            transition: var(--transition);
+            box-shadow: 0 1px 3px var(--color-shadow);
+        }
+
+        .rule-card:hover {
+            box-shadow: 0 4px 12px var(--color-shadow);
+            transform: translateX(4px);
+        }
+
+        .rule-card h4 {
+            color: var(--color-primary);
+            margin-bottom: var(--spacing-sm);
+            font-size: 1rem;
+        }
+
+        .rule-card p {
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+            line-height: 1.6;
+        }
+
+        .rule-badge {
+            display: inline-block;
+            background-color: var(--color-secondary);
+            color: white;
+            padding: 2px 8px;
+            border-radius: var(--radius-sm);
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-top: var(--spacing-xs);
+        }
+
+        /* ============================================
+           4. INTERACTIVE SIMULATOR
+           ============================================ */
+        .simulator-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-lg);
+            margin-top: var(--spacing-lg);
+        }
+
+        .simulator-inputs {
+            background: var(--color-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-lg);
+            box-shadow: 0 1px 3px var(--color-shadow);
+        }
+
+        .form-group {
+            margin-bottom: var(--spacing-md);
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: var(--spacing-xs);
+            color: var(--color-text-primary);
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: var(--spacing-sm);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            font-size: 1rem;
+            transition: var(--transition);
+            font-family: inherit;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--color-secondary);
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+        }
+
+        .simulator-button {
+            width: 100%;
+            padding: var(--spacing-sm);
+            background-color: var(--color-secondary);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            margin-top: var(--spacing-md);
+        }
+
+        .simulator-button:hover {
+            background-color: #0284c7;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+        }
+
+        .simulator-button:active {
+            transform: translateY(0);
+        }
+
+        .simulator-result {
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md);
+        }
+
+        .result-card {
+            background: var(--color-card);
+            border: 2px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-lg);
+            text-align: center;
+            box-shadow: 0 1px 3px var(--color-shadow);
+            transition: var(--transition);
+        }
+
+        .result-card.active {
+            border-color: var(--color-secondary);
+            box-shadow: 0 4px 12px rgba(14, 165, 233, 0.2);
+        }
+
+        .result-label {
+            color: var(--color-text-secondary);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .courier-name {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--color-primary);
+            margin: var(--spacing-md) 0;
+        }
+
+        .courier-icon {
+            font-size: 3rem;
+            margin: var(--spacing-md) 0;
+        }
+
+        .result-explanation {
+            background: var(--color-bg);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-md);
+            text-align: left;
+            font-size: 0.95rem;
+            color: var(--color-text-secondary);
+            line-height: 1.6;
+        }
+
+        .result-explanation strong {
+            color: var(--color-primary);
+        }
+
+        @media (max-width: 768px) {
+            .simulator-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ============================================
+           5. SCALABILITY & CONFIG SECTION
+           ============================================ */
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--spacing-md);
+        }
+
+        .config-card {
+            background: var(--color-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-lg);
+            transition: var(--transition);
+            box-shadow: 0 1px 3px var(--color-shadow);
+        }
+
+        .config-card:hover {
+            box-shadow: 0 4px 12px var(--color-shadow);
+            border-color: var(--color-secondary);
+        }
+
+        .config-card h4 {
+            color: var(--color-primary);
+            margin-bottom: var(--spacing-sm);
+            font-size: 1.05rem;
+        }
+
+        .config-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--color-secondary);
+            margin: var(--spacing-md) 0;
+        }
+
+        .config-card p {
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+            line-height: 1.6;
+        }
+
+        .config-editable {
+            display: inline-block;
+            background-color: var(--color-bg);
+            padding: 2px 6px;
+            border-radius: var(--radius-sm);
+            font-style: italic;
+            color: var(--color-secondary);
+        }
+
+        .scalability-note {
+            background: linear-gradient(135deg, #f0f9ff 0%, #f8fafc 100%);
+            border-left: 4px solid var(--color-secondary);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-lg);
+            margin-top: var(--spacing-lg);
+            font-size: 0.95rem;
+            color: var(--color-text-secondary);
+            line-height: 1.8;
+        }
+
+        /* ============================================
+           6. FOOTER
+           ============================================ */
+        footer {
+            background-color: var(--color-primary);
+            color: white;
+            text-align: center;
+            padding: var(--spacing-lg) var(--spacing-md);
+            margin-top: var(--spacing-xl);
+        }
+
+        footer p {
+            margin: var(--spacing-xs) 0;
+            font-size: 0.95rem;
+        }
+
+        footer .emphasis {
+            font-weight: 600;
+            color: var(--color-secondary);
+        }
+
+        /* ============================================
+           UTILITY CLASSES
+           ============================================ */
+        .section-bg-alt {
+            background-color: var(--color-bg);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* Smooth section transitions */
+        section {
+            animation: fadeIn 0.6s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ============================================
+         1. HERO SECTION
+         ============================================ -->
+    <section class="hero">
+        <div class="container">
+            <h1>Vision Shipping Allocation Engine</h1>
+            <p>Automated courier assignment for Shopify orders</p>
+            <div class="badges">
+                <div class="badge">✓ Same-Day Delivery</div>
+                <div class="badge">✓ Standard Delivery</div>
+                <div class="badge">🚀 Smart Routing</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================
+         2. HOW IT WORKS – FLOW VISUALIZATION
+         ============================================ -->
+    <section class="section-bg-alt">
+        <div class="container">
+            <h2 class="section-title">How It Works</h2>
+            <p class="section-subtitle">Real-time order routing logic</p>
+            <div class="flow-diagram">
+                <div class="flow-step">
+                    <h3>Order Created</h3>
+                    <p>Customer places order on Shopify store</p>
+                </div>
+                <div class="flow-step">
+                    <h3>City Validation</h3>
+                    <p>Check if order is from Cairo or Giza</p>
+                </div>
+                <div class="flow-step">
+                    <h3>Time Check</h3>
+                    <p>Is it before or after 12:00 PM?</p>
+                </div>
+                <div class="flow-step">
+                    <h3>Order Counter</h3>
+                    <p>Count orders assigned after cutoff</p>
+                </div>
+                <div class="flow-step">
+                    <h3>Courier Assignment</h3>
+                    <p>Assign best-fit courier in real-time</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================
+         3. BUSINESS RULES SECTION
+         ============================================ -->
+    <section>
+        <div class="container">
+            <h2 class="section-title">Business Rules</h2>
+            <p class="section-subtitle">Smart allocation logic</p>
+            <div class="rules-grid">
+                <div class="rule-card">
+                    <h4>🌙 Before 12:00 AM</h4>
+                    <p>Orders placed <strong>before 12:00 AM (midnight)</strong> are assigned to <strong>Flextock</strong>.</p>
+                    <span class="rule-badge">EARLY</span>
+                </div>
+                <div class="rule-card">
+                    <h4>🚚 Aramex – After Midnight</h4>
+                    <p>Orders placed <strong>after 12:00 AM</strong> + <strong>First 20 orders</strong> (any delivery type) → <strong>Aramex</strong>.</p>
+                    <span class="rule-badge">STANDARD</span>
+                </div>
+                <div class="rule-card">
+                    <h4>🏃 Weevo – Same-Day Express</h4>
+                    <p>Same-day delivery after 12:00 AM in <strong>Cairo/Giza</strong> + <strong>Beyond 20 orders</strong> → <strong>Weevo</strong>.</p>
+                    <span class="rule-badge">EXPRESS</span>
+                </div>
+                <div class="rule-card">
+                    <h4>📦 Default Routing</h4>
+                    <p>Any order beyond 20 (non same-day Cairo/Giza) or outside service area → <strong>Flextock</strong>.</p>
+                    <span class="rule-badge">DEFAULT</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================
+         4. INTERACTIVE SIMULATOR
+         ============================================ -->
+    <section class="section-bg-alt">
+        <div class="container">
+            <h2 class="section-title">Interactive Simulator</h2>
+            <p class="section-subtitle">Test the allocation engine with your own inputs</p>
+            <div class="simulator-container">
+                <div class="simulator-inputs">
+                    <h3 style="margin-bottom: var(--spacing-lg); color: var(--color-primary);">Simulate an Order</h3>
+                    <form id="simulatorForm">
+                        <div class="form-group">
+                            <label for="city">City</label>
+                            <select id="city" required>
+                                <option value="">Select City</option>
+                                <option value="cairo">Cairo</option>
+                                <option value="giza">Giza</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="time">Order Time</label>
+                            <input type="time" id="time" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="delivery">Delivery Type</label>
+                            <select id="delivery" required>
+                                <option value="">Select Delivery Type</option>
+                                <option value="same-day">Same-Day</option>
+                                <option value="standard">Standard</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="orderNumber">Order Count (after 12 PM)</label>
+                            <input type="number" id="orderNumber" min="0" max="100" value="1" required>
+                        </div>
+                        <button type="submit" class="simulator-button">Allocate Courier</button>
+                    </form>
+                </div>
+
+                <div class="simulator-result">
+                    <div class="result-card" id="resultCard">
+                        <p class="result-label">Assigned Courier</p>
+                        <div class="courier-icon" id="courierIcon">📦</div>
+                        <div class="courier-name" id="courierName">–</div>
+                        <div class="result-explanation" id="explanation">
+                            Fill in the form and click "Allocate Courier" to see the assignment.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================
+         5. SCALABILITY & CONFIG SECTION
+         ============================================ -->
+    <section>
+        <div class="container">
+            <h2 class="section-title">Scalability & Configuration</h2>
+            <p class="section-subtitle">Adjust engine parameters without code changes</p>
+            <div class="config-grid">
+                <div class="config-card">
+                    <h4>📊 Daily Aramex Limit</h4>
+                    <div class="config-value">20</div>
+                    <p>Maximum orders allocated to Aramex per day after 12:00 PM. <span class="config-editable">Configurable</span></p>
+                </div>
+                <div class="config-card">
+                    <h4>⏰ Cutoff Time</h4>
+                    <div class="config-value">12:00 AM</div>
+                    <p>Midnight threshold for switching allocation strategy. <span class="config-editable">Configurable</span></p>
+                </div>
+                <div class="config-card">
+                    <h4>📍 Supported Cities</h4>
+                    <div class="config-value">2</div>
+                    <p>Cairo, Giza (can be expanded to other cities). <span class="config-editable">Configurable</span></p>
+                </div>
+                <div class="config-card">
+                    <h4>🚚 Courier Pool</h4>
+                    <div class="config-value">4</div>
+                    <p>Flextock, Aramex, Weevo, + fallback. <span class="config-editable">Configurable</span></p>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ============================================
+         6. FOOTER
+         ============================================ -->
+    <footer>
+        <p><span class="emphasis">Designed for scalable logistics automation</span></p>
+        <p>Shopify Custom App – Concept Mockup</p>
+    </footer>
+
+    <!-- ============================================
+         JAVASCRIPT – SIMULATOR LOGIC
+         ============================================ -->
+    <script>
+        /**
+         * ALLOCATION ENGINE LOGIC
+         * Core business rules for courier assignment
+         */
+        const AllocationEngine = {
+            config: {
+                aramexLimit: 20,
+                cutoffTime: '12:00',
+                supportedCities: ['cairo', 'giza']
+            },
+
+            // Track afternoon orders (reset daily in production)
+            afternoonOrderCount: 0,
+
+            allocate(city, time, delivery, orderNumber) {
+                const [orderHour, orderMin] = time.split(':');
+                const orderTimeInMinutes = parseInt(orderHour) * 60 + parseInt(orderMin);
+                const [cutoffHour, cutoffMin] = this.config.cutoffTime.split(':');
+                const cutoffTimeInMinutes = parseInt(cutoffHour) * 60 + parseInt(cutoffMin);
+                
+                const isCairoOrGiza = this.config.supportedCities.includes(city.toLowerCase());
+
+                // Rule 1: Before 12:00 AM (midnight) - Default to Flextock
+                if (orderTimeInMinutes < cutoffTimeInMinutes) {
+                    return {
+                        courier: 'Flextock',
+                        icon: '📦',
+                        reason: `Order placed at ${time} (before 12:00 AM). Flextock handles all early morning orders.`
+                    };
+                }
+
+                // After 12:00 AM logic begins here
+                // Rule 2: First 20 orders after 12:00 AM (ANY delivery type) go to Aramex
+                const isWithinAramexLimit = orderNumber <= this.config.aramexLimit;
+
+                if (isWithinAramexLimit) {
+                    return {
+                        courier: 'Aramex',
+                        icon: '🚚',
+                        reason: `Order #${orderNumber} after 12:00 AM + Within first ${this.config.aramexLimit} orders → Aramex (any delivery type).`
+                    };
+                }
+
+                // Rule 3: Beyond 20 orders after 12:00 AM
+                // Check delivery type and location
+                if (delivery === 'same-day' && isCairoOrGiza) {
+                    return {
+                        courier: 'Weevo',
+                        icon: '🏃',
+                        reason: `Order #${orderNumber} after 12:00 AM + Same-day delivery in Cairo/Giza + Beyond ${this.config.aramexLimit} orders → Weevo (express specialist).`
+                    };
+                }
+
+                // Rule 4: All other cases beyond 20 orders
+                return {
+                    courier: 'Flextock',
+                    icon: '📦',
+                    reason: `Order #${orderNumber} exceeds Aramex limit (${this.config.aramexLimit}) or outside service area → Flextock (default).`
+                };
+            }
+        };
+
+        /**
+         * FORM HANDLER & UI LOGIC
+         */
+        document.getElementById('simulatorForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const city = document.getElementById('city').value.trim();
+            const time = document.getElementById('time').value.trim();
+            const delivery = document.getElementById('delivery').value.trim();
+            const orderNumberInput = document.getElementById('orderNumber').value.trim();
+            const orderNumber = orderNumberInput ? parseInt(orderNumberInput, 10) : 1;
+
+            if (!city || !time || !delivery) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            if (isNaN(orderNumber) || orderNumber < 1) {
+                alert('Order count must be a positive number');
+                return;
+            }
+
+            const result = AllocationEngine.allocate(city, time, delivery, orderNumber);
+            updateResultDisplay(result);
+        });
+
+        /**
+         * UPDATE RESULT DISPLAY
+         */
+        function updateResultDisplay(result) {
+            const resultCard = document.getElementById('resultCard');
+            const courierIcon = document.getElementById('courierIcon');
+            const courierName = document.getElementById('courierName');
+            const explanation = document.getElementById('explanation');
+
+            // Update content
+            courierIcon.textContent = result.icon;
+            courierName.textContent = result.courier;
+            explanation.innerHTML = `<strong>Why?</strong> ${result.reason}`;
+
+            // Add active state for styling
+            resultCard.classList.add('active');
+
+            // Trigger animation
+            resultCard.style.animation = 'none';
+            void resultCard.offsetWidth; // Force reflow
+            resultCard.style.animation = 'fadeIn 0.6s ease-in';
+        }
+
+        // Set today's time as default
+        const now = new Date();
+        document.getElementById('time').value = 
+            String(now.getHours()).padStart(2, '0') + ':' + 
+            String(now.getMinutes()).padStart(2, '0');
+    </script>
+
+</body>
+</html>
